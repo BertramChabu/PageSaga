@@ -1,0 +1,145 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manga Reader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com/3.4.5"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  </head>
+  <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+    <header class="bg-gray-800 border-b border-gray-700">
+      <nav class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center">
+            <img class="h-8 w-auto" src="{% static 'images/logo.png' %}" alt="Logo" />
+            <div class="ml-10 flex items-baseline space-x-4">
+              <a href="#" class="text-custom hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Library</a>
+              <a href="#" class="text-gray-300 hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Browse</a>
+              <a href="#" class="text-gray-300 hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">History</a>
+            </div>
+          </div>
+          <div class="flex items-center">
+            <div class="relative">
+              <input type="text" placeholder="Search manga..." class="bg-gray-700 text-gray-300 rounded-md pl-10 pr-4 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-custom" />
+              <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+            </div>
+            <button class="ml-4 p-2 text-gray-400 hover:text-white">
+              <i class="fas fa-user-circle text-xl"></i>
+            </button>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <div class="flex-1 flex">
+      <aside class="w-64 bg-gray-800 border-r border-gray-700">
+        <div class="p-4">
+          <h2 class="text-lg font-semibold mb-4">Bookmarks</h2>
+          <div class="space-y-4">
+            {% for manga in books %}
+            <div class="bg-gray-700 rounded-lg p-3">
+              <img src="{{ manga.cover_image.url }}" class="w-full h-32 object-cover rounded mb-2" alt="{{ manga.title }}" />
+              <p class="text-sm font-medium">{{ manga.title }}</p>
+              <a href="{% url 'manga_reader' manga.id %}" class="text-xs text-blue-400">Read Now</a>
+            </div>
+            {% empty %}
+            <p class="text-gray-400">No bookmarks available.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </aside>
+
+      <main class="flex-1 flex flex-col">
+        <div class="p-4 bg-gray-800 border-b border-gray-700 flex justify-between">
+          <div class="flex space-x-4">
+            <button onclick="prevPage()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-md text-sm">
+              <i class="fas fa-chevron-left"></i> Previous
+            </button>
+            <button onclick="nextPage()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-md text-sm">
+              Next <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+          <div class="flex space-x-4">
+            <button onclick="zoomIn()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-md text-sm">
+              <i class="fas fa-search-plus"></i> Zoom In
+            </button>
+            <button onclick="zoomOut()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-md text-sm">
+              <i class="fas fa-search-minus"></i> Zoom Out
+            </button>
+          </div>
+        </div>
+
+        <div class="flex-1 relative flex justify-center items-center bg-black">
+          <canvas id="pdf-canvas" class="border border-gray-700"></canvas>
+        </div>
+
+        <div class="bg-gray-800 border-t border-gray-700 p-4 text-center">
+          <span class="text-sm">Page <span id="page-num">1</span> of <span id="page-count">?</span></span>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      let pdfDoc = null,
+        pageNum = 1,
+        pageCount = 1,
+        scale = 1.5,
+        canvas = document.getElementById("pdf-canvas"),
+        ctx = canvas.getContext("2d");
+
+      const url = "{{ manga.pdf_file.url }}"; // Django variable to load the PDF dynamically
+
+      pdfjsLib.getDocument(url).promise.then(function (pdf) {
+        pdfDoc = pdf;
+        pageCount = pdf.numPages;
+        document.getElementById("page-count").textContent = pageCount;
+        renderPage(pageNum);
+      });
+
+      function renderPage(num) {
+        pdfDoc.getPage(num).then(function (page) {
+          let viewport = page.getViewport({ scale: scale });
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          let renderContext = {
+            canvasContext: ctx,
+            viewport: viewport,
+          };
+          page.render(renderContext);
+          document.getElementById("page-num").textContent = num;
+        });
+      }
+
+      function prevPage() {
+        if (pageNum > 1) {
+          pageNum--;
+          renderPage(pageNum);
+        }
+      }
+
+      function nextPage() {
+        if (pageNum < pageCount) {
+          pageNum++;
+          renderPage(pageNum);
+        }
+      }
+
+      function zoomIn() {
+        scale += 0.2;
+        renderPage(pageNum);
+      }
+
+      function zoomOut() {
+        if (scale > 0.6) {
+          scale -= 0.2;
+          renderPage(pageNum);
+        }
+      }
+    </script>
+  </body>
+</html>
